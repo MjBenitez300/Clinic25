@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Dashboard</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(to bottom right, #e3f2fd, #90caf9);
+      height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+    .dashboard-container {
+      background: #ffffff;
+      padding: 40px 30px;
+      border-radius: 10px;
+      box-shadow: 0 0 20px rgba(0,0,0,0.1);
+      width: 100%;
+      max-width: 450px;
+      text-align: center;
+    }
+
+    .logo {
+      width: 120px; /* Adjust size if necessary */
+      margin-bottom: 20px;
+      display: block;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    .dashboard-container h2 {
+      color: #1976d2;
+      margin-bottom: 30px;
+    }
+
+    .dashboard-container button {
+      width: 100%;
+      padding: 15px;
+      margin: 10px 0;
+      border: none;
+      border-radius: 6px;
+      font-size: 16px;
+      background-color: #1976d2;
+      color: white;
+      cursor: pointer;
+      transition: background-color 0.3s;
+    }
+
+    .dashboard-container button:hover {
+      background-color: #0d47a1;
+    }
+
+    .logout-btn {
+      background-color: #e53935;
+      margin-top: 20px;
+    }
+
+    .logout-btn:hover {
+      background-color: #b71c1c;
+    }
+
+    /* Button for View Department Dashboard */
+    .view-department-btn {
+      background-color: #00796b;
+    }
+
+    .view-department-btn:hover {
+      background-color: #004d40;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="dashboard-container">
+    <!-- Logo added here -->
+    <img src="logo.png" alt="Logo" class="logo" />
+    <h2>Clinic Information System</h2>
+
+    <button onclick="window.location.href='form.html?type=guest'">Add Guest Patient</button>
+    <button onclick="window.location.href='form.html?type=employee'">Add Employee Patient</button>
+    <button onclick="window.location.href='viewAllRecords.html'">View My Records</button>
+
+    <!-- New Button for Viewing Department Dashboard -->
+    <button class="view-department-btn" onclick="window.location.href='viewStats.html'">View Department Dashboard</button>
+
+    <button class="logout-btn" onclick="logout()">Logout</button>
+  </div>
+
+  <script>
+    const loggedInUser = JSON.parse(localStorage.getItem("loggedInUser"));
+    if (!loggedInUser) {
+      alert("Please log in first.");
+      window.location.href = "index.html";
+    }
+
+    function logout() {
+      localStorage.removeItem("loggedInUser");
+      window.location.href = "index.html";
+    }
+  </script>
+
+</body>
+</html>

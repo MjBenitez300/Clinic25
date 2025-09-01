@@ -1,0 +1,367 @@
+<!DOCTYPE html>  
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>View Patient Records</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 40px; text-align: center; background: #f9f9f9; }
+    h1 { margin-bottom: 20px; color: #333; }
+    #navButtons, #actionButtons { margin-bottom: 20px; }
+    #navButtons button, #actionButtons button {
+      margin: 5px; padding: 10px 18px; font-size: 16px; border: none;
+      border-radius: 5px; cursor: pointer; color: white; transition: background-color 0.3s;
+    }
+    #navButtons button { background-color: #007bff; }
+    #navButtons button:hover { background-color: #0056b3; }
+    #actionButtons button { background-color: #28a745; }
+    #actionButtons button:hover { background-color: #1e7e34; }
+    #deleteAllBtn { background-color: #dc3545; }
+    #deleteAllBtn:hover { background-color: #a71d2a; }
+    #viewHistoryBtn { background-color: #17a2b8; }
+    #viewHistoryBtn:hover { background-color: #117a8b; }
+
+    table { width: 100%; border-collapse: collapse; background: white; margin-top: 20px; box-shadow: 0 0 8px rgba(0,0,0,0.1); }
+    th, td { padding: 12px 15px; border: 1px solid #ddd; text-align: left; }
+    th { background-color: #007bff; color: white; }
+
+    /* Search history section */
+    #historySearchSection {
+      margin-top: 30px;
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+      max-width: 700px;
+      margin-left: auto;
+      margin-right: auto;
+      text-align: left;
+      display: none;
+    }
+    #historySearchSection input[type="text"] {
+      width: 70%;
+      padding: 8px;
+      font-size: 16px;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+    }
+    #historySearchSection button {
+      padding: 9px 18px;
+      font-size: 16px;
+      margin-left: 10px;
+      background-color: #007bff;
+      border: none;
+      color: white;
+      border-radius: 5px;
+      cursor: pointer;
+      transition: background-color 0.3s;
+    }
+    #historySearchSection button:hover {
+      background-color: #0056b3;
+    }
+    #printAllHistoryBtn {
+      background-color: #28a745;
+    }
+    #printAllHistoryBtn:hover {
+      background-color: #1e7e34;
+    }
+    #closeHistoryBtn {
+      background-color: #dc3545;
+    }
+    #closeHistoryBtn:hover {
+      background-color: #a71d2a;
+    }
+    #historyResults {
+      margin-top: 20px;
+    }
+    #historyResults table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+      box-shadow: none;
+    }
+    #historyResults th {
+      background-color: #17a2b8;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>View Patient Records</h1>
+
+  <div id="navButtons">
+    <button id="viewAllBtn">View All Records</button>
+    <button id="viewGuestBtn">View Guest Records</button>
+    <button id="viewEmployeeBtn">View Employee Records</button>
+  </div>
+
+  <div id="actionButtons">
+    <button id="printBtn">Print</button>
+    <button id="exportBtn">Export to Excel</button>
+    <button id="deleteAllBtn">Delete All Displayed Records</button>
+    <button id="backBtn">Back to Dashboard</button>
+    <button id="viewHistoryBtn">View History</button>
+  </div>
+
+  <table id="recordsTable"></table>
+
+  <!-- History Search and Results -->
+  <div id="historySearchSection">
+    <label for="historySearchInput"><strong>Search Patient Name:</strong></label><br />
+    <input type="text" id="historySearchInput" placeholder="Enter patient name..." />
+    <button id="historySearchBtn">Search</button>
+    <button id="printAllHistoryBtn">Print All</button>
+    <button id="closeHistoryBtn">Close</button>
+
+    <div id="historyResults"></div>
+  </div>
+
+  <script>
+    const loggedInUser = JSON.parse(localStorage.getItem("loggedInUser"));
+    if (!loggedInUser) {
+      alert("Please login first.");
+      window.location.href = "index.html";
+    }
+
+    const recordsTable = document.getElementById("recordsTable");
+    const viewAllBtn = document.getElementById("viewAllBtn");
+    const viewGuestBtn = document.getElementById("viewGuestBtn");
+    const viewEmployeeBtn = document.getElementById("viewEmployeeBtn");
+    const printBtn = document.getElementById("printBtn");
+    const exportBtn = document.getElementById("exportBtn");
+    const deleteAllBtn = document.getElementById("deleteAllBtn");
+    const backBtn = document.getElementById("backBtn");
+    const viewHistoryBtn = document.getElementById("viewHistoryBtn");
+
+    const historySearchSection = document.getElementById("historySearchSection");
+    const historySearchInput = document.getElementById("historySearchInput");
+    const historySearchBtn = document.getElementById("historySearchBtn");
+    const historyResults = document.getElementById("historyResults");
+    const printAllHistoryBtn = document.getElementById("printAllHistoryBtn");
+    const closeHistoryBtn = document.getElementById("closeHistoryBtn");
+
+    // Employee extra fields now include patientID
+    const employeeExtraFields = [
+
+      { id: "civilStatus", label: "Civil Status" },
+      { id: "department", label: "Department" }
+    ];
+
+    const commonFields = [
+      { id: "patientID", label: "Patient ID" },
+      { id: "patientName", label: "Patient Name" },
+      { id: "patientAge", label: "Age" },
+      { id: "sex", label: "Sex" },
+      { id: "patientAddress", label: "Address" },
+      { id: "walkInDate", label: "Walk-in Date" },
+      { id: "chiefComplaint", label: "Chief Complaint" },
+      { id: "history", label: "History of Past Illness" },
+      { id: "medicationCombined", label: "Medication" }
+    ];
+
+    let currentFilter = null;
+
+    function renderTableHeader() {
+      recordsTable.innerHTML = "";
+      const header = recordsTable.createTHead().insertRow();
+      let fields = [...commonFields];
+      if (currentFilter === "employee") fields = fields.concat(employeeExtraFields);
+
+      fields.forEach(f => {
+        const th = document.createElement("th");
+        th.textContent = f.label;
+        header.appendChild(th);
+      });
+    }
+
+    function loadPatients() {
+      const all = JSON.parse(localStorage.getItem("patients")) || [];
+      if (currentFilter === "guest" || currentFilter === "employee") {
+        return all.filter(p => p.type === currentFilter);
+      }
+      return all;
+    }
+
+    function renderRecords() {
+      renderTableHeader();
+      const tbody = recordsTable.createTBody();
+      const patients = loadPatients();
+
+      let fields = [...commonFields];
+      if (currentFilter === "employee") fields = fields.concat(employeeExtraFields);
+
+      patients.forEach(p => {
+        const row = tbody.insertRow();
+        fields.forEach(f => {
+          const cell = row.insertCell();
+          if (f.id === "sex") {
+            cell.textContent = p[f.id] === "M" ? "Male" : p[f.id] === "F" ? "Female" : "";
+          } else if (f.id === "patientName") {
+            const last = p.lastName || "";
+            const first = p.firstName || "";
+            const middle = p.middleName ? ` ${p.middleName}` : "";
+            cell.textContent = `${last}, ${first}${middle}`.trim();
+          } else if (f.id === "medicationCombined") {
+            const med1 = p["medication1"] || "";
+            const med2 = p["medication2"] || "";
+            cell.textContent = [med1, med2].filter(Boolean).join(", ");
+          } else if (f.id === "patientID") {
+            // Show patientID here
+            cell.textContent = p.patientID || "";
+          } else {
+            cell.textContent = p[f.id] || "";
+          }
+        });
+
+      });
+    }
+
+    function deletePatient(id) {
+      let all = JSON.parse(localStorage.getItem("patients")) || [];
+      all = all.filter(p => p.patientID !== id);
+      localStorage.setItem("patients", JSON.stringify(all));
+      renderRecords();
+    }
+
+    viewAllBtn.onclick = () => { currentFilter = null; renderRecords(); hideHistorySearch(); };
+    viewGuestBtn.onclick = () => { currentFilter = "guest"; renderRecords(); hideHistorySearch(); };
+    viewEmployeeBtn.onclick = () => { currentFilter = "employee"; renderRecords(); hideHistorySearch(); };
+
+    printBtn.onclick = () => {
+      if (recordsTable.rows.length === 0) return alert("No records to print.");
+      const newWin = window.open("", "", "width=900,height=600");
+      newWin.document.write(`<html><head><title>Print</title><style>
+        table{width:100%;border-collapse:collapse;}
+        th,td{border:1px solid #ddd;padding:8px;text-align:left;}
+        th{background:#007bff;color:#fff;}
+      </style></head><body>`);
+      newWin.document.write(recordsTable.outerHTML);
+      newWin.document.write(`</body></html>`);
+      newWin.document.close();
+      newWin.print();
+    };
+
+    exportBtn.onclick = () => {
+      if (recordsTable.rows.length === 0) return alert("No records to export.");
+      const rows = [...recordsTable.rows].map(r =>
+        [...r.cells].map(c => `"${c.textContent}"`).join(",")
+      );
+      const blob = new Blob([rows.join("\n")], { type: "text/csv" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "patient_records.csv";
+      a.click();
+      URL.revokeObjectURL(url);
+    };
+
+    deleteAllBtn.onclick = () => {
+      if (!confirm("Delete all displayed records?")) return;
+      const all = JSON.parse(localStorage.getItem("patients")) || [];
+      const kept = currentFilter ? all.filter(p => p.type !== currentFilter) : [];
+      localStorage.setItem("patients", JSON.stringify(kept));
+      renderRecords();
+    };
+
+    backBtn.onclick = () => window.location.href = "dashboard.html";
+
+    viewHistoryBtn.onclick = () => {
+      if(historySearchSection.style.display === "none" || historySearchSection.style.display === "") {
+        showHistorySearch();
+      } else {
+        hideHistorySearch();
+      }
+    };
+
+    function showHistorySearch() {
+      historySearchSection.style.display = "block";
+      historySearchInput.focus();
+      historyResults.innerHTML = "";
+      historySearchInput.value = "";
+    }
+
+    function hideHistorySearch() {
+      historySearchSection.style.display = "none";
+      historyResults.innerHTML = "";
+      historySearchInput.value = "";
+    }
+
+    historySearchBtn.onclick = () => {
+      const query = historySearchInput.value.trim().toLowerCase();
+      if (!query) {
+        alert("Please enter a patient name to search.");
+        return;
+      }
+      const allPatients = JSON.parse(localStorage.getItem("patients")) || [];
+      const results = allPatients.filter(p => {
+        const fullName = `${p.firstName || ""} ${p.middleName || ""} ${p.lastName || ""}`.toLowerCase();
+        return fullName.includes(query);
+      });
+
+      renderHistoryResults(results);
+    };
+
+    printAllHistoryBtn.onclick = () => {
+      if (!historyResults.innerHTML.trim()) {
+        alert("No records to print.");
+        return;
+      }
+
+      const newWin = window.open("", "", "width=800,height=600");
+      newWin.document.write(`<html><head><title>Print History</title>
+        <style>
+          table{width:100%;border-collapse:collapse;margin-top:20px}
+          th,td{border:1px solid #ddd;padding:10px;text-align:left}
+          th{background:#17a2b8;color:#fff}
+        </style>
+        </head><body>`);
+      newWin.document.write(historyResults.innerHTML);
+      newWin.document.write("</body></html>");
+      newWin.document.close();
+      newWin.focus();
+      newWin.print();
+    };
+
+    closeHistoryBtn.onclick = () => {
+      hideHistorySearch();
+    };
+
+    function renderHistoryResults(results) {
+      if (results.length === 0) {
+        historyResults.innerHTML = "<p>No records found.</p>";
+        return;
+      }
+
+      let html = `<table>
+        <thead>
+          <tr>
+            <th>Patient Name</th>
+            <th>Walk-in Date</th>
+             <th>Chief Complaint</th>
+            <th>Medication</th>
+          </tr>
+        </thead>
+        <tbody>`;
+
+       results.forEach(p => {
+        const patientName = `${p.lastName || ""}, ${p.firstName || ""}${p.middleName ? " " + p.middleName : ""}`.trim();
+        const medication = [p.medication1 || "", p.medication2 || ""].filter(Boolean).join(", ");
+        const chiefComplaint = p.chiefComplaint || "";
+
+        html += `<tr>
+          <td>${patientName}</td>
+          <td>${p.walkInDate || ""}</td>
+           <td>${chiefComplaint}</td>
+          <td>${medication}</td>
+        </tr>`;
+      });
+
+      html += "</tbody></table>";
+      historyResults.innerHTML = html;
+    }
+
+    currentFilter = null;
+    renderRecords();
+  </script>
+</body>
+</html>
